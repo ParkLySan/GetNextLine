@@ -1,4 +1,4 @@
-#include "libft/libft.h"
+#nclude "libft/includes/libft.h"
 #include "get_next_line.h"
 
 static t_fd		*get_fdatas(t_fd **flst, int const fd)
