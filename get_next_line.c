@@ -1,123 +1,70 @@
-#nclude "libft/includes/libft.h"
+
 #include "get_next_line.h"
 
-static t_fd		*get_fdatas(t_fd **flst, int const fd)
+char			*read_gnl(char **gnl, char *buf, int fd)
 {
-	t_fd	*fview;
-	t_fd	*fview_prev;
+	char		*tmp;
+	int			ret;
 
-	if ((int)fd < 0)
+	ret = 1;
+	while (!(ft_strchr(*gnl, '\n')) && ret)
+	{
+		ret = read(fd, buf, BUFF_SIZE);
+		if (ret)
+		{
+			buf[ret] = '\0';
+			tmp = *gnl;
+			if (!(*gnl = ft_strjoin(*gnl, buf)))
+				return (NULL);
+			free(tmp);
+		}
+	}
+	free(buf);
+	return (*gnl);
+}
+
+char			*stock_line(char **gnl)
+{
+	char		*buf;
+	char		*newline;
+	char		*tmp;
+
+	buf = ft_strchr(*gnl, '\n');
+	tmp = NULL;
+	if (buf)
+	{
+		if (!(newline = ft_strndup(*gnl, buf - *gnl)))
+			return (NULL);
+		tmp = *gnl;
+		if (!(*gnl = ft_strdup(buf + 1)))
+			return (NULL);
+		free(tmp);
+	}
+	else if (!(newline = ft_strdup(*gnl)))
 		return (NULL);
-	fview = *flst;
-	fview_prev = NULL;
-	while (fview != NULL)
+	if (!(*gnl) || !tmp)
 	{
-		if (fview->fd == fd)
-			return (fview);
-		fview_prev = fview;
-		fview = fview->next;
+		free(*gnl);
+		*gnl = NULL;
 	}
-	if (!(fview = (t_fd *)malloc(sizeof(t_fd))))
-		return (NULL);
-	fview->fd = fd;
-	fview->start = 0;
-	fview->lst = NULL;
-	fview->next = NULL;
-	if (fview_prev != NULL)
-		fview_prev->next = fview;
-	else
-		*flst = fview;
-	return (fview);
+	return (newline);
 }
 
-static int		read_to_lst(t_fd *fdatas)
+int				get_next_line(const int fd, char **line)
 {
-	t_list	*new_lst;
-	char	*buffer;
+	static char	*gnl = NULL;
+	char		*buf;
 
-	buffer = (char *)malloc(BUFF_SIZE + 1);
-	if (buffer == NULL)
+	if (fd < 0 || !line || BUFF_SIZE <= 0 || !(buf = ft_strnew(BUFF_SIZE + 1)) \
+		|| read(fd, buf, 0) == -1 || (gnl == NULL && !(gnl = ft_strnew(0))))
 		return (-1);
-	new_lst = ft_lstln(buffer, BUFF_SIZE);
-	if (new_lst == NULL)
+	if (!(read_gnl(&gnl, buf, fd)))
 		return (-1);
-	ft_lstaddend(&(fdatas->lst), new_lst);
-	return (read(fdatas->fd, (char *)(new_lst->content), BUFF_SIZE));
-}
-
-static int		get_line_end(t_fd *fdatas, int *can_read)
-{
-	int		i_buffer;
-	t_list	*lst;
-	char	*found;
-
-	i_buffer = 0;
-	*can_read = BUFF_SIZE;
-	if (fdatas->lst == NULL)
-		*can_read = read_to_lst(fdatas);
-	lst = fdatas->lst;
-	while (*can_read)
+	if (*gnl)
 	{
-		if (i_buffer == 0)
-			found = ft_strchr((char *)(lst->content + fdatas->start), '\n');
-		else
-			found = ft_strchr((char *)(lst->content), '\n');
-		if (found != NULL)
-			return (i_buffer * BUFF_SIZE + (found - (char *)lst->content));
-		*can_read = read_to_lst(fdatas);
-		i_buffer++;
-		lst = lst->next;
+		if (!(*line = stock_line(&gnl)))
+			return (-1);
+		return (1);
 	}
-	return (i_buffer * BUFF_SIZE);
-}
-
-static char		*make_str(t_fd *fdatas, int const line_end)
-{
-	int		i;
-	int		max;
-	char	*str;
-
-	i = 0;
-	max = (line_end - fdatas->start);
-	if (!(str = (char *)malloc(sizeof(char) * (max + 1))))
-		return (NULL);
-	while (i < max)
-	{
-		ft_strncpy(&(str[i]), fdatas->lst->content + fdatas->start, (max - i));
-		i += BUFF_SIZE - fdatas->start;
-		if (i <= max)
-			ft_lstshift(&(fdatas->lst));
-		fdatas->start = 0;
-	}
-	str[max] = '\0';
-	fdatas->start = line_end % BUFF_SIZE + 1;
-	return (str);
-}
-
-int				get_next_line(int const fd, char **line)
-{
-	int				line_end;
-	int				can_read;
-	t_fd			*fdatas;
-	static t_fd		*flst;
-
-	fdatas = get_fdatas(&flst, fd);
-	if (fdatas == NULL)
-		return (-1);
-	if (fdatas->start == -1)
-	{
-		free(fdatas->lst);
-		fdatas->lst = NULL;
-		fdatas->start = 0;
-		return (0);
-	}
-	line_end = get_line_end(fdatas, &can_read);
-	*line = make_str(fdatas, line_end);
-	if (can_read == 0)
-		fdatas->start = -1;
-	if (can_read == -1)
-		return (-1);
-	if (line == NULL)
-		return (-1);
-	return (1);
+	return (0);
 }
